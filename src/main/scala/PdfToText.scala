@@ -3,7 +3,7 @@ import java.io.File
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.text.PDFTextStripper
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object PDFTextStripper{
   def apply(startPage: Int, endPage: Int): PDFTextStripper = {
@@ -13,30 +13,29 @@ object PDFTextStripper{
     stripper
   }
 }
+case class Opts(startPage: Int, endPage: Int, filename:String)
 
 object PdfToText {
 
   def main(args: Array[String]) {
-    if (args.length != 3) printUsageAndExit()
-
-    val startPage = args(0).toInt
-    val endPage = args(1).toInt
-    val filename = args(2)
-
-    // sanity check
-    if (startPage > endPage) printUsageAndExit()
-    val stripper = PDFTextStripper(startPage, endPage)
-
-    getTextFromPdf(stripper, filename).recover({
-      case e => s"${e.getMessage}\n${e.getStackTrace.mkString("\n")}"
-    }).foreach(println(_))
+    val pdfContent = Try(Opts(args(0).toInt, args(1).toInt, args(2))).recoverWith({
+        case e:ArrayIndexOutOfBoundsException => Failure(new RuntimeException("Usage: pdftotext startPage endPage filename", e))
+      })
+      .filter(opts => opts.startPage <= opts.endPage).recoverWith({
+        case e:NoSuchElementException => Failure(new RuntimeException("endPage must be >= startPage", e))
+      })
+      .map(opts =>
+        (PDFTextStripper(opts.startPage, opts.endPage), opts.filename))
+      .flatMap(opts => getTextFromPdf(opts._1, opts._2))
+    pdfContent match {
+      case Success(content) => println(content)
+      case Failure(e) => println(exceptionToString(e))
+    }
   }
 
-  def printUsageAndExit() {
-    println("")
-    println("Usage: pdftotext startPage endPage filename")
-    println("       (endPage must be >= startPage)")
-    System.exit(1)
+  private def exceptionToString(e: Throwable):String = {
+    if(e == null) ""
+    else s"${e.getMessage}\n${e.getStackTrace.mkString("\n")} ${exceptionToString(e.getCause)}"
   }
 
   def getTextFromPdf(stripper: PDFTextStripper, filename: String): Try[String] = {
@@ -44,5 +43,4 @@ object PdfToText {
   }
 
 }
-
 
