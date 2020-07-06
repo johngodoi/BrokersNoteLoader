@@ -27,13 +27,14 @@ object PdfToText {
       .map(opts =>
         (PDFTextStripper(opts.startPage, opts.endPage), opts.filename))
       .flatMap(opts => getTextFromPdf(opts._1, opts._2))
+
     pdfContent match {
       case Success(content) => println(content)
       case Failure(e) => println(exceptionToString(e))
     }
   }
 
-  private def exceptionToString(e: Throwable):String = {
+  def exceptionToString(e: Throwable):String = {
     if(e == null) ""
     else s"${e.getMessage}\n${e.getStackTrace.mkString("\n")} ${exceptionToString(e.getCause)}"
   }
